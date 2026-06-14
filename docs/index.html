@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#000000">
+  <title>LVLV</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- Animated background layer -->
+  <div class="bg" aria-hidden="true">
+    <div class="bg__glow bg__glow--a"></div>
+    <div class="bg__glow bg__glow--b"></div>
+    <div class="bg__grain"></div>
+  </div>
+
+  <!-- ===================== GATE ===================== -->
+  <section id="gate" class="gate">
+    <div class="gate__card glass" id="gateCard">
+      <h1 class="wordmark">LVLV</h1>
+      <p class="gate__hint">Enter the password to view the gallery</p>
+      <form id="gateForm" class="gate__form" autocomplete="off">
+        <div class="gate__input-row">
+          <input
+            type="password"
+            id="gatePassword"
+            class="gate__input glass"
+            placeholder="Password"
+            autocomplete="off"
+            autocapitalize="off"
+            autocorrect="off"
+            spellcheck="false"
+            inputmode="text"
+            aria-label="Password"
+          >
+          <button type="submit" class="gate__btn glass" aria-label="Enter">
+            <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+              <path d="M5 12h13M13 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <!-- ===================== GALLERY ===================== -->
+  <section id="gallery" class="gallery" hidden>
+    <header class="topbar glass">
+      <div class="topbar__brand">LVLV</div>
+      <!--
+        TODO: this points at the GitHub Release asset; release must be created after first push
+        (gh release create v1 dist/LVLV-originals.zip ...)
+      -->
+      <a
+        id="downloadAll"
+        class="topbar__download glass"
+        href="https://github.com/HenrijsFilips/turbo-octo-guacamole/releases/download/v1/LVLV-originals.zip"
+        download
+      >
+        <span class="topbar__download-label">Download all</span>
+        <span class="topbar__download-size">~736 MB</span>
+      </a>
+    </header>
+
+    <main id="grid" class="grid" aria-label="Photo gallery"></main>
+  </section>
+
+  <!-- ===================== LIGHTBOX ===================== -->
+  <div id="lightbox" class="lightbox" hidden>
+    <div class="lightbox__backdrop"></div>
+    <button class="lightbox__close glass" id="lightboxClose" aria-label="Close">
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+        <path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
+    <button class="lightbox__nav lightbox__nav--prev glass" id="lightboxPrev" aria-label="Previous photo">
+      <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
+        <path d="M15 6l-6 6 6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
+    <button class="lightbox__nav lightbox__nav--next glass" id="lightboxNext" aria-label="Next photo">
+      <svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true">
+        <path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
+    <div class="lightbox__stage">
+      <img id="lightboxImage" class="lightbox__image" alt="">
+    </div>
+    <div class="lightbox__counter" id="lightboxCounter"></div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
