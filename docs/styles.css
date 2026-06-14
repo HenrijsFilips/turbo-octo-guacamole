@@ -1,0 +1,738 @@
+/* =========================================================
+   LVLV — minimalist glassy black & white UI
+   Photos stay in color; chrome is monochrome.
+   ========================================================= */
+
+:root {
+  --bg: #0a0a0a;
+  --fg: #f5f5f5;
+  --fg-dim: rgba(245, 245, 245, 0.6);
+  --fg-faint: rgba(245, 245, 245, 0.35);
+
+  --glass-bg: rgba(255, 255, 255, 0.06);
+  --glass-bg-strong: rgba(255, 255, 255, 0.1);
+  --glass-border: rgba(255, 255, 255, 0.14);
+  --glass-highlight: rgba(255, 255, 255, 0.25);
+
+  --error: #ff5c5c;
+
+  --radius-lg: 24px;
+  --radius-md: 16px;
+  --radius-sm: 12px;
+
+  /* spring-physics easing (CSS linear() — Safari 17.2+) */
+  --ease-spring: linear(
+    0, 0.006, 0.025 2.8%, 0.101 6.1%, 0.539 18.9%, 0.721 25.3%,
+    0.849, 0.937 34.6%, 1.013, 1.041 44.4%, 1.056, 1.061 52%,
+    1.054, 1.029 67%, 1.008 80.6%, 0.999 91.7%, 1
+  );
+
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+  min-height: 100vh;
+  min-height: 100dvh;
+  /* stop pull-to-refresh / scroll chaining on mobile */
+  overscroll-behavior-y: contain;
+}
+
+/* iOS scroll-lock helper: applied to <html> while the lightbox is open */
+html.is-locked,
+html.is-locked body {
+  overflow: hidden;
+  touch-action: none;
+}
+
+/* =========================================================
+   Animated background (monochrome only)
+   ========================================================= */
+
+.bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.bg__glow {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.5;
+  background: radial-gradient(circle at center, rgba(255, 255, 255, 0.16), transparent 70%);
+  will-change: transform;
+}
+
+.bg__glow--a {
+  width: 70vmax;
+  height: 70vmax;
+  top: -20vmax;
+  left: -15vmax;
+  animation: drift-a 60s ease-in-out infinite alternate;
+}
+
+.bg__glow--b {
+  width: 60vmax;
+  height: 60vmax;
+  bottom: -20vmax;
+  right: -15vmax;
+  background: radial-gradient(circle at center, rgba(255, 255, 255, 0.10), transparent 70%);
+  animation: drift-b 75s ease-in-out infinite alternate;
+}
+
+@keyframes drift-a {
+  0%   { transform: translate(0, 0) scale(1); }
+  50%  { transform: translate(8vmax, 6vmax) scale(1.08); }
+  100% { transform: translate(-4vmax, 10vmax) scale(0.96); }
+}
+
+@keyframes drift-b {
+  0%   { transform: translate(0, 0) scale(1); }
+  50%  { transform: translate(-6vmax, -8vmax) scale(1.1); }
+  100% { transform: translate(5vmax, -4vmax) scale(0.94); }
+}
+
+/* faint film grain via inline SVG noise */
+.bg__grain {
+  position: absolute;
+  inset: -50%;
+  width: 200%;
+  height: 200%;
+  opacity: 0.025;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  animation: grain-shift 12s steps(8) infinite;
+}
+
+@keyframes grain-shift {
+  0%   { transform: translate(0, 0); }
+  25%  { transform: translate(-2%, 1%); }
+  50%  { transform: translate(1%, -2%); }
+  75%  { transform: translate(-1%, 2%); }
+  100% { transform: translate(0, 0); }
+}
+
+/* =========================================================
+   Glass primitive
+   ========================================================= */
+
+.glass {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  backdrop-filter: blur(20px) saturate(140%);
+  border: 1px solid var(--glass-border);
+  box-shadow:
+    inset 0 1px 0 0 var(--glass-highlight),
+    0 8px 32px rgba(0, 0, 0, 0.35);
+}
+
+/* Registered custom property so the conic gradient's angle can animate. */
+@property --angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+/* A beam of light that slowly traces the rounded edge of select glass
+   elements. Built with an animated conic-gradient masked to a thin ring
+   (mask-composite). Lives behind the content. */
+.edge-light::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: conic-gradient(
+    from var(--angle),
+    transparent 0deg,
+    rgba(255, 255, 255, 0.7) 30deg,
+    transparent 90deg,
+    transparent 360deg
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  opacity: 0.55;
+  animation: trace-edge 8s linear infinite;
+}
+
+.topbar__download.edge-light::after {
+  animation-duration: 6s;
+  animation-direction: reverse;
+}
+
+@keyframes trace-edge {
+  to {
+    --angle: 360deg;
+  }
+}
+
+/* =========================================================
+   Gate (password screen)
+   ========================================================= */
+
+.gate {
+  position: relative;
+  z-index: 1;
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  padding-top: calc(24px + var(--safe-top));
+  padding-bottom: calc(24px + var(--safe-bottom));
+  padding-left: calc(24px + var(--safe-left));
+  padding-right: calc(24px + var(--safe-right));
+}
+
+.gate__card {
+  width: 100%;
+  max-width: 420px;
+  border-radius: var(--radius-lg);
+  padding: 48px 36px;
+  text-align: center;
+  transition: opacity 0.6s ease, transform 0.6s ease, filter 0.6s ease;
+}
+
+.gate__card.is-shaking {
+  animation: shake 0.5s ease;
+  border-color: rgba(255, 92, 92, 0.5);
+  box-shadow:
+    inset 0 1px 0 0 var(--glass-highlight),
+    0 8px 32px rgba(0, 0, 0, 0.35),
+    0 0 0 1px rgba(255, 92, 92, 0.35),
+    0 0 24px rgba(255, 92, 92, 0.25);
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  15% { transform: translateX(-10px); }
+  30% { transform: translateX(8px); }
+  45% { transform: translateX(-6px); }
+  60% { transform: translateX(4px); }
+  75% { transform: translateX(-2px); }
+  90% { transform: translateX(1px); }
+}
+
+/* Two delicate interlocked wedding bands (pure CSS).
+   Kept faint and ethereal — present but understated — with a slow glint of
+   light travelling around each band and a gentle 3D rock. */
+.rings {
+  width: 150px;
+  height: 92px;
+  margin: 6px auto 24px;
+  perspective: 700px;
+  opacity: 0.5;
+}
+
+.rings__scene {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  animation: rings-rock 8s ease-in-out infinite;
+}
+
+/* a gentle rock keeps both rings readable as overlapping bands */
+@keyframes rings-rock {
+  0%, 100% { transform: rotateX(-16deg) rotateY(-26deg); }
+  50%      { transform: rotateX(-16deg) rotateY(26deg); }
+}
+
+.ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 72px;
+  height: 72px;
+  margin: -36px 0 0 -36px;
+  border-radius: 50%;
+  transform-style: preserve-3d;
+}
+
+/* the band: a thin masked ring of soft white light with a moving glint */
+.ring::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(
+    from var(--angle),
+    rgba(255, 255, 255, 0.12),
+    rgba(255, 255, 255, 0.9),
+    rgba(255, 255, 255, 0.18),
+    rgba(255, 255, 255, 0.6),
+    rgba(255, 255, 255, 0.12),
+    rgba(255, 255, 255, 0.9),
+    rgba(255, 255, 255, 0.12)
+  );
+  -webkit-mask: radial-gradient(closest-side, #0000 85%, #000 87%);
+          mask: radial-gradient(closest-side, #0000 85%, #000 87%);
+  filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.35));
+  animation: ring-shimmer 6s linear infinite;
+}
+
+/* interlocked side-by-side, slightly offset in depth */
+.ring--a { transform: translate3d(-15px, 0, 6px); }
+.ring--b { transform: translate3d(15px, 0, -6px); }
+.ring--b::before { animation-delay: -3s; }
+
+@keyframes ring-shimmer {
+  to { --angle: 360deg; }
+}
+
+.wordmark {
+  margin: 0 0 8px;
+  font-size: clamp(2.6rem, 12vw, 4rem);
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  color: var(--fg);
+}
+
+.gate__hint {
+  margin: 0 0 28px;
+  font-size: 0.95rem;
+  color: var(--fg-dim);
+}
+
+.gate__form {
+  display: flex;
+}
+
+.gate__input-row {
+  display: flex;
+  width: 100%;
+  gap: 10px;
+}
+
+.gate__input {
+  flex: 1;
+  min-width: 0;
+  border-radius: var(--radius-md);
+  padding: 14px 18px;
+  font-size: 1rem;
+  color: var(--fg);
+  letter-spacing: 0.05em;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.gate__input::placeholder {
+  color: var(--fg-faint);
+}
+
+.gate__input:focus {
+  border-color: var(--glass-highlight);
+  box-shadow:
+    inset 0 1px 0 0 var(--glass-highlight),
+    0 0 0 3px rgba(255, 255, 255, 0.08);
+}
+
+.gate__btn {
+  flex: 0 0 auto;
+  width: 52px;
+  height: 52px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--fg);
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.15s ease;
+}
+
+.gate__btn:hover {
+  background: var(--glass-bg-strong);
+}
+
+.gate__btn:active {
+  transform: scale(0.94);
+}
+
+/* Gate exit transition */
+.gate.is-leaving .gate__card {
+  opacity: 0;
+  transform: scale(0.92);
+  filter: blur(12px);
+}
+
+.gate.is-hidden {
+  display: none;
+}
+
+/* =========================================================
+   Gallery
+   ========================================================= */
+
+.gallery {
+  position: relative;
+  z-index: 1;
+  min-height: 100vh;
+  min-height: 100dvh;
+  opacity: 0;
+  transform: scale(0.97);
+  filter: blur(8px);
+}
+
+.gallery.is-entering {
+  animation: gallery-in 0.7s ease forwards;
+}
+
+@keyframes gallery-in {
+  to {
+    opacity: 1;
+    transform: scale(1);
+    filter: blur(0);
+  }
+}
+
+/* =========================================================
+   Top bar
+   ========================================================= */
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: calc(16px + var(--safe-top)) calc(16px + var(--safe-left)) 0 calc(16px + var(--safe-right));
+  padding: 22px 24px;
+  border-radius: var(--radius-md);
+}
+
+@supports (margin: env(safe-area-inset-top)) {
+  .topbar {
+    margin-right: calc(16px + var(--safe-right));
+    margin-left: calc(16px + var(--safe-left));
+  }
+}
+
+.topbar__brand {
+  font-weight: 700;
+  font-size: 1.15rem;
+  letter-spacing: 0.22em;
+}
+
+.topbar__download {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.2;
+  padding: 10px 18px;
+  border-radius: var(--radius-sm);
+  color: var(--fg);
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.15s ease;
+}
+
+.topbar__download:hover {
+  background: var(--glass-bg-strong);
+}
+
+.topbar__download:active {
+  transform: scale(0.97);
+}
+
+.topbar__download-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.topbar__download-size {
+  font-size: 0.7rem;
+  color: var(--fg-dim);
+  letter-spacing: 0.04em;
+}
+
+/* =========================================================
+   Grid (masonry via CSS columns)
+   ========================================================= */
+
+.grid {
+  columns: 4;
+  column-gap: 12px;
+  padding: 16px;
+  padding-bottom: calc(32px + var(--safe-bottom));
+  padding-left: calc(16px + var(--safe-left));
+  padding-right: calc(16px + var(--safe-right));
+}
+
+.tile {
+  break-inside: avoid;
+  margin-bottom: 12px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  cursor: pointer;
+  opacity: 0;
+  transform: translateY(34px) scale(0.96);
+  transition: opacity 0.55s ease, transform 0.9s var(--ease-spring);
+}
+
+.tile.in {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.tile img {
+  display: block;
+  width: 100%;
+  height: auto;
+  transition: transform 0.4s ease;
+}
+
+.tile:hover img {
+  transform: scale(1.03);
+}
+
+@media (max-width: 900px) {
+  .grid {
+    columns: 3;
+  }
+}
+
+@media (max-width: 600px) {
+  .grid {
+    columns: 2;
+    column-gap: 8px;
+    padding: 8px;
+    padding-bottom: calc(24px + var(--safe-bottom));
+    padding-left: calc(8px + var(--safe-left));
+    padding-right: calc(8px + var(--safe-right));
+  }
+
+  .tile {
+    margin-bottom: 8px;
+    border-radius: var(--radius-sm);
+  }
+
+  .topbar {
+    margin: calc(8px + var(--safe-top)) calc(8px + var(--safe-left)) 0 calc(8px + var(--safe-right));
+    padding: 16px 16px;
+  }
+
+  .topbar__brand {
+    font-size: 1rem;
+    letter-spacing: 0.18em;
+  }
+}
+
+/* =========================================================
+   Lightbox
+   ========================================================= */
+
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* we own all gestures here: no native scroll/zoom/edge-swipe-back */
+  touch-action: none;
+  overscroll-behavior: contain;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.lightbox__image {
+  -webkit-user-drag: none;
+}
+
+.lightbox[hidden] {
+  display: none;
+}
+
+.lightbox__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(5, 5, 5, 0.85);
+  -webkit-backdrop-filter: blur(24px);
+  backdrop-filter: blur(24px);
+}
+
+.lightbox__stage {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: calc(24px + var(--safe-top)) calc(72px + var(--safe-left)) calc(24px + var(--safe-bottom)) calc(72px + var(--safe-right));
+}
+
+.lightbox__image {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: var(--radius-sm);
+  opacity: 0;
+  transform: scale(0.9);
+  transition: opacity 0.35s ease, transform 0.55s var(--ease-spring);
+  box-shadow: 0 16px 60px rgba(0, 0, 0, 0.6);
+}
+
+.lightbox__image.is-visible {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.lightbox__close,
+.lightbox__nav {
+  position: absolute;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  color: var(--fg);
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.15s ease;
+}
+
+.lightbox__close:hover,
+.lightbox__nav:hover {
+  background: var(--glass-bg-strong);
+}
+
+.lightbox__close:active,
+.lightbox__nav:active {
+  transform: scale(0.92);
+}
+
+.lightbox__close {
+  top: calc(16px + var(--safe-top));
+  right: calc(16px + var(--safe-right));
+}
+
+.lightbox__nav--prev {
+  left: calc(16px + var(--safe-left));
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.lightbox__nav--next {
+  right: calc(16px + var(--safe-right));
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.lightbox__nav--prev:active,
+.lightbox__nav--next:active {
+  transform: translateY(-50%) scale(0.92);
+}
+
+.lightbox__counter {
+  position: absolute;
+  bottom: calc(16px + var(--safe-bottom));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  color: var(--fg-dim);
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+
+@media (max-width: 600px) {
+  .lightbox__stage {
+    padding: calc(16px + var(--safe-top)) calc(16px + var(--safe-left)) calc(64px + var(--safe-bottom)) calc(16px + var(--safe-right));
+  }
+
+  .lightbox__nav {
+    width: 40px;
+    height: 40px;
+  }
+
+  .lightbox__nav--prev {
+    left: calc(8px + var(--safe-left));
+  }
+
+  .lightbox__nav--next {
+    right: calc(8px + var(--safe-right));
+  }
+
+  .lightbox__close {
+    width: 40px;
+    height: 40px;
+    top: calc(8px + var(--safe-top));
+    right: calc(8px + var(--safe-right));
+  }
+}
+
+/* =========================================================
+   Reduced motion
+   ========================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .bg__glow,
+  .bg__grain,
+  .edge-light::after,
+  .ring::before {
+    animation: none !important;
+  }
+
+  .edge-light::after {
+    opacity: 0.3;
+  }
+
+  /* keep the rings posed but still */
+  .rings__scene {
+    animation: none !important;
+    transform: rotateX(-16deg) rotateY(20deg);
+  }
+
+  .tile {
+    opacity: 1;
+    transform: none;
+  }
+}
